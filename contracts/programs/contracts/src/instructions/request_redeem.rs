@@ -1,15 +1,17 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::TokenAccount;
+use anchor_spl::token::{Token, TokenAccount};
 
 use crate::errors::RenewraError;
 use crate::events::RedeemRequestEvent;
-use crate::state::{Governance, NavOracle, RedemptionQueue, RedemptionRequest, RedemptionStatus};
+use crate::state::{Governance, RedemptionQueue, RedemptionRequest, RedemptionStatus};
 
 #[derive(Accounts)]
 pub struct RequestRedeem<'info> {
+    /// Token holder requesting redemption
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub requester: Signer<'info>,
 
+    /// Governance account to check if fund is paused
     #[account(
         seeds = [Governance::SEED],
         bump = governance.bump,
@@ -17,12 +19,7 @@ pub struct RequestRedeem<'info> {
     )]
     pub governance: Account<'info, Governance>,
 
-    #[account(
-        seeds = [NavOracle::SEED],
-        bump = nav_oracle.bump
-    )]
-    pub nav_oracle: Account<'info, NavOracle>,
-
+    /// Redemption queue PDA storing pending requests
     #[account(
         mut,
         seeds = [RedemptionQueue::SEED],
@@ -30,56 +27,62 @@ pub struct RequestRedeem<'info> {
     )]
     pub redemption_queue: Account<'info, RedemptionQueue>,
 
-    /// User's Renewra token account (to verify balance)
+    /// User's REI token account (to verify balance)
     #[account(
-        constraint = user_token_account.owner == user.key()
+        mut,
+        constraint = user_reit_account.owner == requester.key() @ RenewraError::InvalidAuthority
     )]
-    pub user_token_account: Account<'info, TokenAccount>,
+    pub user_reit_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<RequestRedeem>, token_amount: u64) -> Result<()> {
+    // Validate token amount
     require!(token_amount > 0, RenewraError::InvalidAmount);
     
-    let user_token_account = &ctx.accounts.user_token_account;
+    let user_reit_account = &ctx.accounts.user_reit_account;
     let redemption_queue = &mut ctx.accounts.redemption_queue;
-    let nav_oracle = &ctx.accounts.nav_oracle;
     let clock = Clock::get()?;
     
-    // Verify user has enough tokens
+    // Step 1: Verify requester has sufficient REI tokens
     require!(
-        user_token_account.amount >= token_amount,
+        user_reit_account.amount >= token_amount,
         RenewraError::InsufficientTokens
     );
     
-    // Check queue capacity
+    // Validate queue has space
     require!(
         redemption_queue.requests.len() < RedemptionQueue::MAX_REQUESTS,
         RenewraError::RedemptionQueueFull
     );
     
-    // Create redemption request
+    // Step 2: Create RedemptionRequest struct
     let request = RedemptionRequest {
-        requester: ctx.accounts.user.key(),
+        requester: ctx.accounts.requester.key(),
         token_amount,
         requested_at: clock.unix_timestamp,
         status: RedemptionStatus::Pending,
     };
     
-    // Add to queue
+    // Calculate request_id before pushing (1-indexed)
+    let request_id = (redemption_queue.requests.len() + 1) as u64;
+    
+    // Step 3: Push to redemption_queue.requests vector
     redemption_queue.requests.push(request);
     
-    // Emit event
+    // Step 4: Emit RedeemRequestEvent
     emit!(RedeemRequestEvent {
-        requester: ctx.accounts.user.key(),
+        requester: ctx.accounts.requester.key(),
         token_amount,
         requested_at: clock.unix_timestamp,
-        request_id: redemption_queue.requests.len() as u64,
+        request_id,
     });
     
     msg!(
-        "Redemption requested: {} tokens at NAV {}",
-        token_amount,
-        nav_oracle.latest_nav
+        "Redemption request #{}: {} tokens queued for settlement",
+        request_id,
+        token_amount
     );
     
     Ok(())
