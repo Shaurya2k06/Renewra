@@ -1,0 +1,66 @@
+{
+  "projects": [
+    {
+      "id": "solar_001",
+      "name": "Arizona Solar Farm Alpha",
+      "dcf_valuation": 24000000,
+      "cash_flow_this_month": 85000,
+      "capacity_mw": 50,
+      "location": "Phoenix, AZ",
+      "status": "operational"
+    },
+    {
+      "id": "solar_002",
+      "name": "Nevada Desert Solar",
+      "dcf_valuation": 18000000,
+      "cash_flow_this_month": 62500,
+      "capacity_mw": 35,
+      "location": "Las Vegas, NV",
+      "status": "operational"
+    },
+    {
+      "id": "wind_001",
+      "name": "Texas Wind Corridor",
+      "dcf_valuation": 15000000,
+      "cash_flow_this_month": 52000,
+      "capacity_mw": 40,
+      "location": "Amarillo, TX",
+      "status": "operational"
+    },
+    {
+      "id": "solar_003",
+      "name": "California Rooftop Portfolio",
+      "dcf_valuation": 8000000,
+      "cash_flow_this_month": 28000,
+      "capacity_mw": 15,
+      "location": "Los Angeles, CA",
+      "status": "operational"
+    },
+    {
+      "id": "wind_002",
+      "name": "Midwest Wind Farm",
+      "dcf_valuation": 7000000,
+      "cash_flow_this_month": 24500,
+      "capacity_mw": 20,
+      "location": "Iowa",
+      "status": "operational"
+    },
+    {
+      "id": "solar_004",
+      "name": "Florida Solar Expansion",
+      "dcf_valuation": 5000000,
+      "cash_flow_this_month": 0,
+      "capacity_mw": 25,
+      "location": "Miami, FL",
+      "status": "construction"
+    }
+  ],
+  "fund_metadata": {
+    "total_cash_on_hand_usdc": 500000,
+    "total_debt": 1000000,
+    "pending_capex": 100000,
+    "token_supply": 1500000,
+    "management_fee_bps": 200,
+    "last_yield_distribution": "2025-11-30T00:00:00Z"
+  }
+}
