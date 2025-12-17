@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 
 // Import wallet adapter styles
 import '@solana/wallet-adapter-react-ui/styles.css';
@@ -23,14 +22,9 @@ import NavHistoryPage from './pages/NavHistoryPage';
 const RPC_ENDPOINT = import.meta.env.VITE_DEVNET_RPC || 'https://api.devnet.solana.com';
 
 function App() {
-  // Initialize wallets
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
-    []
-  );
+  // Let wallet-adapter auto-detect wallets (Phantom, Solflare, etc.)
+  // No need to manually specify adapters - they register as Standard Wallets
+  const wallets = useMemo(() => [], []);
 
   return (
     <ConnectionProvider endpoint={RPC_ENDPOINT}>

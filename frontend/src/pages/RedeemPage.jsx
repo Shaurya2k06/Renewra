@@ -2,29 +2,37 @@ import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Button } from '../components/ui/button';
-import { useStore } from '../lib/store';
-import { formatUSD, formatDate } from '../lib/solana';
-import { MOCK_REDEMPTION_REQUESTS } from '../lib/mockData';
+import { useReiToken } from '../lib/useReiToken';
+import { formatUSD, formatDate, shortenPubkey } from '../lib/solana';
+import { toDisplayAmount } from '../lib/types';
 
 export default function RedeemPage() {
   const { connected } = useWallet();
   const { setVisible } = useWalletModal();
-  const { userHoldings, fundStats } = useStore();
+  const { data, requestRedeem, isSubmitting: hookSubmitting, error: hookError, refresh } = useReiToken();
   
   const [tokenAmount, setTokenAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [txSignature, setTxSignature] = useState(null);
+  const [localError, setLocalError] = useState(null);
 
-  const currentNav = fundStats?.currentNav || 5000;
-  const redeemFeeBps = 100; // 1%
+  const currentNav = data?.currentNav || 0;
+  const navDisplay = toDisplayAmount(currentNav, 2);
+  const userReiBalance = toDisplayAmount(data?.userReiBalance || 0, 6);
+  const redeemFeeBps = data?.redeemFeeBps || 100; // 1%
   
   // Calculate USDC received
   const tokens = parseFloat(tokenAmount || 0);
-  const grossUsdcCents = tokens * currentNav;
+  const grossUsdcCents = tokens * navDisplay * 100;
   const feeAmount = (grossUsdcCents * redeemFeeBps) / 10000;
   const netUsdcCents = grossUsdcCents - feeAmount;
 
+  // Redemption queue from on-chain data
+  const redemptionQueue = data?.redemptionQueue || [];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLocalError(null);
+    setTxSignature(null);
     
     if (!connected) {
       setVisible(true);
@@ -32,23 +40,44 @@ export default function RedeemPage() {
     }
     
     if (!tokenAmount || parseFloat(tokenAmount) <= 0) {
+      setLocalError('Please enter a valid amount');
+      return;
+    }
+
+    if (tokens > userReiBalance) {
+      setLocalError('Insufficient REI balance');
       return;
     }
     
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsSubmitting(false);
-    alert('Redemption request submitted! (Mock - not actually submitted to chain)');
+    try {
+      const signature = await requestRedeem(tokens);
+      setTxSignature(signature);
+      setTokenAmount('');
+      refresh();
+    } catch (err) {
+      setLocalError(err.message);
+    }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'bg-green-900/50 text-green-400';
-      case 'processing': return 'bg-yellow-900/50 text-yellow-400';
-      case 'pending': return 'bg-gray-700 text-gray-300';
+      case 2: return 'bg-green-900/50 text-green-400'; // completed
+      case 1: return 'bg-yellow-900/50 text-yellow-400'; // processing
+      case 0: return 'bg-gray-700 text-gray-300'; // pending
       default: return 'bg-gray-700 text-gray-300';
     }
   };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 2: return 'Completed';
+      case 1: return 'Processing';
+      case 0: return 'Pending';
+      default: return 'Unknown';
+    }
+  };
+
+  const error = localError || hookError;
 
   if (!connected) {
     return (
@@ -87,12 +116,34 @@ export default function RedeemPage() {
         <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-6">Request Redemption</h2>
           
+          {/* Success Message */}
+          {txSignature && (
+            <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
+              <p className="text-green-400 font-medium mb-2">✓ Redemption request submitted!</p>
+              <a 
+                href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-300 text-sm hover:underline break-all"
+              >
+                View transaction ↗
+              </a>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6">
+              <p className="text-red-400">{error}</p>
+            </div>
+          )}
+          
           {/* Balance Info */}
           <div className="bg-gray-800/50 rounded-lg p-4 mb-6">
             <div className="flex justify-between">
               <span className="text-gray-400">Your REI Balance</span>
               <span className="text-white font-medium">
-                {userHoldings?.reiBalance?.toLocaleString() || 0} REI
+                {userReiBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} REI
               </span>
             </div>
           </div>
@@ -110,14 +161,16 @@ export default function RedeemPage() {
                   onChange={(e) => setTokenAmount(e.target.value)}
                   placeholder="0"
                   min="0"
-                  max={userHoldings?.reiBalance || 0}
-                  step="1"
+                  max={userReiBalance}
+                  step="0.000001"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  disabled={hookSubmitting}
                 />
                 <button
                   type="button"
-                  onClick={() => setTokenAmount(String(userHoldings?.reiBalance || 0))}
+                  onClick={() => setTokenAmount(String(userReiBalance))}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-sm hover:underline"
+                  disabled={hookSubmitting}
                 >
                   MAX
                 </button>
@@ -129,14 +182,14 @@ export default function RedeemPage() {
               <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Current NAV</span>
-                  <span className="text-white">{formatUSD(currentNav)}</span>
+                  <span className="text-white">${navDisplay.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Gross Value</span>
                   <span className="text-white">{formatUSD(grossUsdcCents)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Redemption Fee (1%)</span>
+                  <span className="text-gray-400">Redemption Fee ({(redeemFeeBps / 100).toFixed(2)}%)</span>
                   <span className="text-yellow-400">-{formatUSD(feeAmount)}</span>
                 </div>
                 <div className="border-t border-gray-700 pt-3 flex justify-between">
@@ -150,10 +203,18 @@ export default function RedeemPage() {
 
             <Button
               type="submit"
-              disabled={isSubmitting || tokens <= 0}
+              disabled={hookSubmitting || tokens <= 0}
               className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Redemption Request'}
+              {hookSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Submitting...
+                </span>
+              ) : 'Submit Redemption Request'}
             </Button>
           </form>
 
@@ -181,7 +242,7 @@ export default function RedeemPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-green-400 font-bold">4.</span>
-                A 1% redemption fee is deducted to cover transaction costs.
+                A {(redeemFeeBps / 100).toFixed(2)}% redemption fee is deducted to cover transaction costs.
               </li>
             </ol>
           </div>
@@ -199,32 +260,42 @@ export default function RedeemPage() {
       <div className="mt-12">
         <h2 className="text-xl font-semibold text-white mb-6">Redemption Queue</h2>
         <div className="bg-gray-800/30 border border-gray-700 rounded-xl overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-800/50">
-              <tr className="text-left text-gray-400 text-sm">
-                <th className="px-6 py-3 font-medium">Request ID</th>
-                <th className="px-6 py-3 font-medium">User</th>
-                <th className="px-6 py-3 font-medium">Amount</th>
-                <th className="px-6 py-3 font-medium">Requested</th>
-                <th className="px-6 py-3 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_REDEMPTION_REQUESTS.map((request) => (
-                <tr key={request.id} className="border-t border-gray-800">
-                  <td className="px-6 py-4 text-gray-300 font-mono text-sm">{request.id}</td>
-                  <td className="px-6 py-4 text-gray-400">{request.userPubkey}</td>
-                  <td className="px-6 py-4 text-white">{request.tokenAmount.toLocaleString()} REI</td>
-                  <td className="px-6 py-4 text-gray-400 text-sm">{formatDate(request.requestedAt)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(request.status)}`}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </span>
-                  </td>
+          {redemptionQueue.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              No pending redemption requests
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gray-800/50">
+                <tr className="text-left text-gray-400 text-sm">
+                  <th className="px-6 py-3 font-medium">Requester</th>
+                  <th className="px-6 py-3 font-medium">Amount</th>
+                  <th className="px-6 py-3 font-medium">Requested</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {redemptionQueue.map((request, idx) => (
+                  <tr key={idx} className="border-t border-gray-800">
+                    <td className="px-6 py-4 text-gray-400 font-mono text-sm">
+                      {shortenPubkey(request.requester, 4)}
+                    </td>
+                    <td className="px-6 py-4 text-white">
+                      {toDisplayAmount(request.amount, 6).toLocaleString(undefined, { maximumFractionDigits: 4 })} REI
+                    </td>
+                    <td className="px-6 py-4 text-gray-400 text-sm">
+                      {formatDate(request.timestamp * 1000)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(request.status)}`}>
+                        {getStatusText(request.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

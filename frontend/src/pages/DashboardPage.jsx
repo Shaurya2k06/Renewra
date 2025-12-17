@@ -1,20 +1,33 @@
+import { useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Button } from '../components/ui/button';
 import { StatCard } from '../components/StatCard';
-import { useStore } from '../lib/store';
+import { useReiToken } from '../lib/useReiToken';
 import { formatUSD, formatDate, shortenPubkey } from '../lib/solana';
-import { MOCK_TRANSACTIONS } from '../lib/mockData';
+import { toDisplayAmount } from '../lib/types';
 
 export default function DashboardPage() {
   const { connected, publicKey } = useWallet();
   const { setVisible } = useWalletModal();
-  const { userHoldings, fundStats } = useStore();
+  const { data, loading, refresh } = useReiToken();
 
-  // Calculate gain/loss percentage
-  const gainPercent = userHoldings?.avgPurchasePrice 
-    ? (((fundStats?.currentNav || 0) - userHoldings.avgPurchasePrice) / userHoldings.avgPurchasePrice * 100).toFixed(2)
-    : 0;
+  // Refresh on mount
+  useEffect(() => {
+    if (connected) {
+      refresh();
+    }
+  }, [connected, refresh]);
+
+  // Calculate values
+  const currentNav = data?.currentNav || 0;
+  const navDisplay = toDisplayAmount(currentNav, 2); // NAV stored in cents
+  const reiBalance = toDisplayAmount(data?.userReiBalance || 0, 6);
+  const tokenSupply = toDisplayAmount(data?.tokenSupply || 0, 6);
+  const currentValue = reiBalance * navDisplay;
+  
+  // Calculate share of fund
+  const sharePercent = tokenSupply > 0 ? (reiBalance / tokenSupply * 100).toFixed(4) : '0.0000';
 
   if (!connected) {
     return (
@@ -39,39 +52,56 @@ export default function DashboardPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Your Dashboard</h1>
-        <p className="text-gray-400">
-          Wallet: {shortenPubkey(publicKey?.toBase58(), 6)}
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Your Dashboard</h1>
+          <p className="text-gray-400">
+            Wallet: {shortenPubkey(publicKey?.toBase58(), 6)}
+          </p>
+        </div>
+        <Button 
+          onClick={refresh}
+          variant="outline"
+          className="border-gray-600 text-gray-300 hover:bg-gray-800"
+          disabled={loading}
+        >
+          {loading ? 'Refreshing...' : '↻ Refresh'}
+        </Button>
       </div>
+
+      {/* Loading State */}
+      {loading && !data?.currentNav && (
+        <div className="text-center py-12">
+          <div className="animate-spin h-8 w-8 border-2 border-green-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-400">Loading on-chain data...</p>
+        </div>
+      )}
 
       {/* Holdings Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="REI Balance"
-          value={`${userHoldings?.reiBalance?.toLocaleString() || 0} REI`}
-          subValue={`≈ ${formatUSD(userHoldings?.currentValue || 0)}`}
+          value={`${reiBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} REI`}
+          subValue={`≈ $${currentValue.toFixed(2)}`}
           icon="🪙"
         />
         <StatCard
-          label="Avg Purchase Price"
-          value={formatUSD(userHoldings?.avgPurchasePrice || 0)}
-          subValue={`Current: ${formatUSD(fundStats?.currentNav || 0)}`}
+          label="Current NAV"
+          value={`$${navDisplay.toFixed(2)}`}
+          subValue="Per REI token"
           icon="📊"
         />
         <StatCard
-          label="Unrealized P&L"
-          value={formatUSD(userHoldings?.unrealizedGain || 0)}
-          subValue={`${gainPercent}%`}
-          trend={userHoldings?.unrealizedGain >= 0 ? 'up' : 'down'}
-          icon={userHoldings?.unrealizedGain >= 0 ? '📈' : '📉'}
+          label="USDC Balance"
+          value={`${toDisplayAmount(data?.userUsdcBalance || 0, 6).toFixed(2)} USDC`}
+          subValue="Available to invest"
+          icon="💵"
         />
         <StatCard
-          label="Pending Yield"
-          value={formatUSD(userHoldings?.pendingYield || 0)}
-          subValue="Next distribution: ~7 days"
-          icon="🌱"
+          label="Fund Share"
+          value={`${sharePercent}%`}
+          subValue={`of ${tokenSupply.toLocaleString(undefined, { maximumFractionDigits: 2 })} REI`}
+          icon="🥧"
         />
       </div>
 
@@ -81,84 +111,75 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <div className="flex justify-between py-3 border-b border-gray-700">
-              <span className="text-gray-400">Total Invested</span>
+              <span className="text-gray-400">REI Token Balance</span>
               <span className="text-white font-medium">
-                {formatUSD(userHoldings?.totalInvested || 0)}
+                {reiBalance.toLocaleString(undefined, { maximumFractionDigits: 6 })} REI
               </span>
             </div>
             <div className="flex justify-between py-3 border-b border-gray-700">
-              <span className="text-gray-400">Current Value</span>
+              <span className="text-gray-400">Current Value (at NAV)</span>
               <span className="text-white font-medium">
-                {formatUSD(userHoldings?.currentValue || 0)}
+                ${currentValue.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between py-3 border-b border-gray-700">
+              <span className="text-gray-400">Treasury Balance</span>
+              <span className="text-white font-medium">
+                {toDisplayAmount(data?.treasuryBalance || 0, 6).toFixed(2)} USDC
               </span>
             </div>
             <div className="flex justify-between py-3">
-              <span className="text-gray-400">Net Gain/Loss</span>
-              <span className={`font-medium ${userHoldings?.unrealizedGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {userHoldings?.unrealizedGain >= 0 ? '+' : ''}{formatUSD(userHoldings?.unrealizedGain || 0)}
+              <span className="text-gray-400">Total REI Supply</span>
+              <span className="text-white font-medium">
+                {tokenSupply.toLocaleString(undefined, { maximumFractionDigits: 2 })} REI
               </span>
             </div>
           </div>
           <div className="flex items-center justify-center">
             <div className="text-center">
               <p className="text-gray-400 mb-2">Your Share of Fund</p>
-              <p className="text-4xl font-bold text-white">
-                {fundStats?.totalSupply 
-                  ? ((userHoldings?.reiBalance || 0) / fundStats.totalSupply * 100).toFixed(4)
-                  : 0}%
+              <p className="text-4xl font-bold text-white">{sharePercent}%</p>
+              <p className="text-gray-500 text-sm mt-2">
+                Based on current token holdings
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Fund Info */}
       <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Recent Transactions</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="text-left text-gray-400 text-sm border-b border-gray-700">
-                <th className="pb-3 font-medium">Type</th>
-                <th className="pb-3 font-medium">Amount</th>
-                <th className="pb-3 font-medium">Tokens</th>
-                <th className="pb-3 font-medium">NAV</th>
-                <th className="pb-3 font-medium">Date</th>
-                <th className="pb-3 font-medium">Signature</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_TRANSACTIONS.map((tx) => (
-                <tr key={tx.id} className="border-b border-gray-800">
-                  <td className="py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      tx.type === 'subscribe' 
-                        ? 'bg-green-900/50 text-green-400' 
-                        : tx.type === 'yield'
-                        ? 'bg-blue-900/50 text-blue-400'
-                        : 'bg-yellow-900/50 text-yellow-400'
-                    }`}>
-                      {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                    </span>
-                  </td>
-                  <td className="py-3 text-white">{formatUSD(tx.amount)}</td>
-                  <td className="py-3 text-gray-300">{tx.tokens > 0 ? `+${tx.tokens}` : '-'}</td>
-                  <td className="py-3 text-gray-300">{formatUSD(tx.nav)}</td>
-                  <td className="py-3 text-gray-400 text-sm">{formatDate(tx.timestamp)}</td>
-                  <td className="py-3">
-                    <a 
-                      href={`https://explorer.solana.com/tx/${tx.signature}?cluster=devnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-green-400 hover:underline text-sm"
-                    >
-                      {tx.signature}
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h2 className="text-xl font-semibold text-white mb-4">Fund Information</h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="text-center p-4 bg-gray-900/50 rounded-lg">
+            <p className="text-gray-400 text-sm mb-1">Mint Fee</p>
+            <p className="text-xl font-bold text-white">{(data?.mintFeeBps || 50) / 100}%</p>
+          </div>
+          <div className="text-center p-4 bg-gray-900/50 rounded-lg">
+            <p className="text-gray-400 text-sm mb-1">Redeem Fee</p>
+            <p className="text-xl font-bold text-white">{(data?.redeemFeeBps || 50) / 100}%</p>
+          </div>
+          <div className="text-center p-4 bg-gray-900/50 rounded-lg">
+            <p className="text-gray-400 text-sm mb-1">Management Fee</p>
+            <p className="text-xl font-bold text-white">{(data?.mgmtFeeBps || 200) / 100}%</p>
+          </div>
+        </div>
+        
+        {/* Quick Actions */}
+        <div className="mt-6 flex gap-4">
+          <Button 
+            onClick={() => window.location.href = '/subscribe'}
+            className="flex-1 bg-green-600 hover:bg-green-700"
+          >
+            Subscribe to Fund
+          </Button>
+          <Button 
+            onClick={() => window.location.href = '/redeem'}
+            variant="outline"
+            className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
+          >
+            Request Redemption
+          </Button>
         </div>
       </div>
     </div>

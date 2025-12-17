@@ -2,28 +2,39 @@ import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Button } from './ui/button';
-import { useStore } from '../lib/store';
-import { formatUSD } from '../lib/solana';
+import { useReiToken } from '../lib/useReiToken';
+import { formatUSD, formatTokenAmount } from '../lib/solana';
+import { toDisplayAmount } from '../lib/types';
 
 export default function SubscribeForm() {
   const { connected } = useWallet();
   const { setVisible } = useWalletModal();
-  const { fundStats } = useStore();
+  const { 
+    data, 
+    subscribe, 
+    isSubmitting, 
+    error: hookError 
+  } = useReiToken();
   
   const [usdcAmount, setUsdcAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [txSignature, setTxSignature] = useState(null);
+  const [localError, setLocalError] = useState(null);
   
-  const currentNav = fundStats?.currentNav || 5000;
-  const mintFeeBps = 50; // 0.5%
+  const currentNav = data?.currentNav || 5000;
+  const mintFeeBps = data?.mintFeeBps || 50;
+  const userUsdcBalance = toDisplayAmount(data?.userUsdcBalance || 0, 6);
   
   // Calculate tokens received
-  const usdcCents = parseFloat(usdcAmount || 0) * 100;
+  const usdcValue = parseFloat(usdcAmount || 0);
+  const usdcCents = usdcValue * 100;
   const feeAmount = (usdcCents * mintFeeBps) / 10000;
   const netUsdcCents = usdcCents - feeAmount;
   const tokensReceived = currentNav > 0 ? (netUsdcCents / currentNav) : 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLocalError(null);
+    setTxSignature(null);
     
     if (!connected) {
       setVisible(true);
@@ -31,20 +42,57 @@ export default function SubscribeForm() {
     }
     
     if (!usdcAmount || parseFloat(usdcAmount) <= 0) {
+      setLocalError('Please enter a valid amount');
       return;
     }
     
-    setIsSubmitting(true);
+    if (usdcValue > userUsdcBalance) {
+      setLocalError('Insufficient USDC balance');
+      return;
+    }
     
-    // TODO: Implement actual subscription transaction
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsSubmitting(false);
-    alert('Subscription submitted! (Mock - not actually submitted to chain)');
+    try {
+      const signature = await subscribe(usdcValue);
+      setTxSignature(signature);
+      setUsdcAmount('');
+    } catch (err) {
+      setLocalError(err.message);
+    }
   };
+
+  const error = localError || hookError;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Success Message */}
+      {txSignature && (
+        <div className="bg-green-900/30 border border-green-700 rounded-lg p-4">
+          <p className="text-green-400 font-medium mb-2">✓ Subscription successful!</p>
+          <a 
+            href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-300 text-sm hover:underline break-all"
+          >
+            View transaction ↗
+          </a>
+        </div>
+      )}
+      
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 rounded-lg p-4">
+          <p className="text-red-400">{error}</p>
+        </div>
+      )}
+      
+      {/* USDC Balance */}
+      {connected && (
+        <div className="text-sm text-gray-400">
+          Available: <span className="text-white">{userUsdcBalance.toFixed(2)} USDC</span>
+        </div>
+      )}
+      
       {/* USDC Input */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -58,7 +106,9 @@ export default function SubscribeForm() {
             placeholder="0.00"
             min="0"
             step="0.01"
+            max={userUsdcBalance}
             className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            disabled={isSubmitting}
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
             USDC
@@ -75,7 +125,7 @@ export default function SubscribeForm() {
           </div>
           
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Mint Fee (0.5%)</span>
+            <span className="text-gray-400">Mint Fee ({(mintFeeBps / 100).toFixed(2)}%)</span>
             <span className="text-yellow-400">-{formatUSD(feeAmount)}</span>
           </div>
           
@@ -99,8 +149,9 @@ export default function SubscribeForm() {
           <button
             key={amount}
             type="button"
-            onClick={() => setUsdcAmount(amount.toString())}
-            className="flex-1 py-2 px-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+            onClick={() => setUsdcAmount(Math.min(amount, userUsdcBalance || amount).toString())}
+            className="flex-1 py-2 px-3 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
+            disabled={isSubmitting}
           >
             ${amount}
           </button>
@@ -110,16 +161,16 @@ export default function SubscribeForm() {
       {/* Submit Button */}
       <Button
         type="submit"
-        disabled={isSubmitting || (!connected && false)}
-        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg"
+        disabled={isSubmitting}
+        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg disabled:opacity-50"
       >
         {isSubmitting ? (
-          <span className="flex items-center gap-2">
+          <span className="flex items-center justify-center gap-2">
             <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Subscribing...
+            Processing...
           </span>
         ) : connected ? (
           'Subscribe to Renewra'

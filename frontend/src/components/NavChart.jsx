@@ -35,8 +35,8 @@ export default function NavChart({ data = [] }) {
   }
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div style={{ width: '100%', height: 256, minHeight: 256 }}>
+      <ResponsiveContainer width="100%" height={256}>
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
           <XAxis 

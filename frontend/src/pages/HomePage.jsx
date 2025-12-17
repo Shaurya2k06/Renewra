@@ -1,12 +1,43 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { FundStatsGrid } from '../components/StatCard';
 import NavChart from '../components/NavChart';
-import { useStore } from '../lib/store';
-import { formatUSD } from '../lib/solana';
+import { useReiToken } from '../lib/useReiToken';
+import { toDisplayAmount } from '../lib/types';
 
 export default function HomePage() {
-  const { fundStats, navHistory } = useStore();
+  const { data, loading, refresh } = useReiToken();
+
+  // Refresh NAV on mount
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Convert on-chain values for display
+  const currentNav = toDisplayAmount(data?.currentNav || 0, 2);
+  const tokenSupply = toDisplayAmount(data?.tokenSupply || 0, 6);
+  const treasuryBalance = toDisplayAmount(data?.treasuryBalance || 0, 6);
+  
+  // Mock history for chart until we have real history
+  const navHistory = data?.currentNav ? [
+    { timestamp: Date.now() - 86400000 * 6, nav: (data.currentNav * 0.98) / 100 },
+    { timestamp: Date.now() - 86400000 * 5, nav: (data.currentNav * 0.985) / 100 },
+    { timestamp: Date.now() - 86400000 * 4, nav: (data.currentNav * 0.99) / 100 },
+    { timestamp: Date.now() - 86400000 * 3, nav: (data.currentNav * 0.995) / 100 },
+    { timestamp: Date.now() - 86400000 * 2, nav: (data.currentNav * 0.998) / 100 },
+    { timestamp: Date.now() - 86400000, nav: (data.currentNav * 0.999) / 100 },
+    { timestamp: Date.now(), nav: data.currentNav / 100 },
+  ] : [];
+
+  // Fund stats for the grid
+  const fundStats = {
+    currentNav: data?.currentNav || 0,
+    totalAum: treasuryBalance,
+    totalSupply: tokenSupply,
+    navChange24h: 0.2,
+    ytdYield: 7.2,
+  };
 
   return (
     <div className="space-y-16">
@@ -29,16 +60,24 @@ export default function HomePage() {
           <div className="inline-flex items-center gap-4 bg-gray-800/80 border border-gray-700 rounded-2xl px-8 py-4 mb-8">
             <div className="text-left">
               <p className="text-gray-400 text-sm">Current NAV</p>
-              <p className="text-3xl font-bold text-green-400">
-                {formatUSD(fundStats?.currentNav || 5000)}
-              </p>
+              {loading ? (
+                <div className="h-9 w-24 bg-gray-700 animate-pulse rounded" />
+              ) : (
+                <p className="text-3xl font-bold text-green-400">
+                  ${currentNav.toFixed(2)}
+                </p>
+              )}
             </div>
             <div className="h-12 w-px bg-gray-700" />
             <div className="text-left">
-              <p className="text-gray-400 text-sm">YTD Yield</p>
-              <p className="text-3xl font-bold text-white">
-                {fundStats?.ytdYield || 7.2}%
-              </p>
+              <p className="text-gray-400 text-sm">Total Supply</p>
+              {loading ? (
+                <div className="h-9 w-24 bg-gray-700 animate-pulse rounded" />
+              ) : (
+                <p className="text-3xl font-bold text-white">
+                  {tokenSupply.toLocaleString(undefined, { maximumFractionDigits: 2 })} REI
+                </p>
+              )}
             </div>
           </div>
 
