@@ -21,7 +21,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-2xl">🌱</span>
+            <img src="/logo.png" alt="Renewra" className="h-8 w-8" />
             <span className="text-xl font-bold text-white">Renewra</span>
           </Link>
 

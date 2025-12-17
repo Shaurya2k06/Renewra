@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { TrendingUp, DollarSign, Clock } from 'lucide-react';
 import NavChart from '../components/NavChart';
 import { useStore } from '../lib/store';
 import { formatUSD, formatDate } from '../lib/solana';
@@ -11,29 +12,52 @@ export default function NavHistoryPage() {
     refreshNavHistory();
   }, []);
 
-  // Mock yield distribution events
-  const yieldEvents = [
-    { id: 1, amount: 125000, timestamp: Date.now() - 604800000, nav: 5020, signature: 'YLD1...abc' },
-    { id: 2, amount: 118500, timestamp: Date.now() - 1209600000, nav: 5010, signature: 'YLD2...def' },
-    { id: 3, amount: 122000, timestamp: Date.now() - 1814400000, nav: 5005, signature: 'YLD3...ghi' },
-  ];
+  // Calculate percentage changes from actual NAV history
+  const calculateChange = (currentNav, daysAgo) => {
+    if (!navHistory || navHistory.length < 2) return null;
+    
+    const targetTime = Date.now() - (daysAgo * 86400000);
+    const historicalSnapshot = navHistory.find(snap => snap.timestamp <= targetTime) || navHistory[0];
+    
+    if (!historicalSnapshot || historicalSnapshot.nav === 0) return null;
+    
+    const change = ((currentNav - historicalSnapshot.nav) / historicalSnapshot.nav) * 100;
+    return change.toFixed(2);
+  };
+
+  const currentNav = fundStats?.currentNav || navHistory[navHistory.length - 1]?.nav || 0;
+  const change24h = calculateChange(currentNav, 1);
+  const change30d = calculateChange(currentNav, 30);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">NAV History</h1>
-        <p className="text-gray-400">
-          Track the Net Asset Value of the Renewra fund over time
-        </p>
-      </div>
-
-      {/* Current NAV Card */}
-      <div className="bg-gradient-to-r from-green-900/30 to-green-800/10 border border-green-700/50 rounded-xl p-6 mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <p className="text-green-400 text-sm font-medium mb-1">Current NAV</p>
+      <div cldiv className="flex items-center gap-2 mb-1">
+              <DollarSign className="w-5 h-5 text-green-400" />
+              <p className="text-green-400 text-sm font-medium">Current NAV</p>
+            </div>
             <p className="text-4xl font-bold text-white">
+              {formatUSD(currentNav)}
+            </p>
+          </div>
+          <div className="flex gap-8">
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock className="w-4 h-4 text-gray-400" />
+                <p className="text-gray-400 text-sm">24h Change</p>
+              </div>
+              <p className={`font-semibold ${change24h && parseFloat(change24h) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {change24h ? `${parseFloat(change24h) >= 0 ? '+' : ''}${change24h}%` : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <TrendingUp className="w-4 h-4 text-gray-400" />
+                <p className="text-gray-400 text-sm">30d Change</p>
+              </div>
+              <p className={`font-semibold ${change30d && parseFloat(change30d) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {change30d ? `${parseFloat(change30d) >= 0 ? '+' : ''}${change30d}%` : 'N/A'}
+              
               {formatUSD(fundStats?.currentNav || 5000)}
             </p>
           </div>
@@ -119,38 +143,10 @@ export default function NavHistoryPage() {
         {/* Yield Distribution History */}
         <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Yield Distributions</h2>
-          <div className="space-y-4">
-            {yieldEvents.map((event) => (
-              <div 
-                key={event.id}
-                className="bg-gray-800/50 rounded-lg p-4 border border-gray-700"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="text-green-400 font-semibold">
-                      +{formatUSD(event.amount)} Distributed
-                    </p>
-                    <p className="text-gray-400 text-sm">
-                      NAV at distribution: {formatUSD(event.nav)}
-                    </p>
-                  </div>
-                  <span className="bg-green-900/50 text-green-400 text-xs px-2 py-1 rounded">
-                    Completed
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">{formatDate(event.timestamp)}</span>
-                  <a 
-                    href={`https://explorer.solana.com/tx/${event.signature}?cluster=devnet`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-400 hover:underline"
-                  >
-                    View tx ↗
-                  </a>
-                </div>
-              </div>
-            ))}
+          <div className="text-center py-8">
+            <p className="text-gray-400">
+              Yield distributions will be recorded here when the fund starts generating returns from renewable energy projects.
+            </p>
           </div>
         </div>
       </div>

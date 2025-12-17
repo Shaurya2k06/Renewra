@@ -83,25 +83,25 @@ export default function DashboardPage() {
           label="REI Balance"
           value={`${reiBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} REI`}
           subValue={`≈ $${currentValue.toFixed(2)}`}
-          icon="🪙"
+          icon={Coins}
         />
         <StatCard
           label="Current NAV"
           value={`$${navDisplay.toFixed(2)}`}
           subValue="Per REI token"
-          icon="📊"
+          icon={BarChart3}
         />
         <StatCard
           label="USDC Balance"
           value={`${toDisplayAmount(data?.userUsdcBalance || 0, 6).toFixed(2)} USDC`}
           subValue="Available to invest"
-          icon="💵"
+          icon={WalletIcon}
         />
         <StatCard
           label="Fund Share"
           value={`${sharePercent}%`}
           subValue={`of ${tokenSupply.toLocaleString(undefined, { maximumFractionDigits: 2 })} REI`}
-          icon="🥧"
+          icon={Clock}
         />
       </div>
 

@@ -91,9 +91,9 @@
  */
 
 export const PROJECT_TYPES = {
-  solar: { label: 'Solar', color: '#f59e0b', icon: '☀️' },
-  wind: { label: 'Wind', color: '#3b82f6', icon: '💨' },
-  storage: { label: 'Storage', color: '#10b981', icon: '🔋' },
+  solar: { label: 'Solar', color: '#f59e0b', icon: 'Sun' },
+  wind: { label: 'Wind', color: '#3b82f6', icon: 'Wind' },
+  storage: { label: 'Storage', color: '#10b981', icon: 'Battery' },
 };
 
 /**

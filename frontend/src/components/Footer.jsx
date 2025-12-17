@@ -6,7 +6,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🌱</span>
+              <img src="/logo.png" alt="Renewra" className="h-8 w-8" />
               <span className="text-xl font-bold text-white">Renewra</span>
             </div>
             <p className="text-gray-400 text-sm max-w-md">

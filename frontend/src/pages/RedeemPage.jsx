@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useReiToken } from '../lib/useReiToken';
 import { formatUSD, formatDate, shortenPubkey } from '../lib/solana';
@@ -248,9 +249,12 @@ export default function RedeemPage() {
           </div>
 
           <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-xl p-4">
-            <p className="text-yellow-400 text-sm">
-              ⚠️ <strong>Note:</strong> Redemption prices are calculated at the NAV at 
-              time of processing, not at time of request.
+            <p className="text-yellow-400 text-sm flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>
+                <strong>Note:</strong> Redemption prices are calculated at the NAV at 
+                time of processing, not at time of request.
+              </span>
             </p>
           </div>
         </div>

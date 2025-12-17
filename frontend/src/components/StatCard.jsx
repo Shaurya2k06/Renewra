@@ -1,14 +1,15 @@
 import { formatUSD, formatCompact } from '../lib/solana';
+import { TrendingUp, Coins, DollarSign, Sprout } from 'lucide-react';
 
 /**
  * Stats Card Component for displaying key metrics
  */
-export function StatCard({ label, value, subValue, icon, trend }) {
+export function StatCard({ label, value, subValue, icon: IconComponent, trend }) {
   return (
     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
       <div className="flex items-start justify-between mb-2">
         <span className="text-gray-400 text-sm">{label}</span>
-        {icon && <span className="text-2xl">{icon}</span>}
+        {IconComponent && <IconComponent className="w-6 h-6 text-gray-500" />}
       </div>
       <p className="text-2xl font-bold text-white mb-1">{value}</p>
       {subValue && (
@@ -35,26 +36,26 @@ export function FundStatsGrid({ stats }) {
         value={formatUSD(stats.currentNav)}
         subValue="+0.54% (30d)"
         trend="up"
-        icon="📈"
+        icon={TrendingUp}
       />
       <StatCard
         label="Total Supply"
         value={`${formatCompact(stats.totalSupply)} REI`}
         subValue="Circulating tokens"
-        icon="🪙"
+        icon={Coins}
       />
       <StatCard
         label="Fund Value"
         value={`$${formatCompact(stats.fundValue)}`}
         subValue="Total AUM"
-        icon="💰"
+        icon={DollarSign}
       />
       <StatCard
         label="YTD Yield"
         value={`${stats.ytdYield}%`}
         subValue="Annualized return"
         trend="up"
-        icon="🌱"
+        icon={Sprout}
       />
     </div>
   );
