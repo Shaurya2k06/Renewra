@@ -139,33 +139,122 @@ class NavEngine:
         
         return (nav_in_cents, timestamp)
     
-    def simulate_monthly_yield(self) -> None:
+    def simulate_monthly_yield(self) -> Dict[str, Any]:
         """
         Simulate monthly yield updates with degradation and weather variance.
         
         This modifies project cash flows to simulate real-world conditions:
-        - Solar panel degradation (~0.5% per year)
-        - Weather variance (±10% monthly)
-        - Seasonal adjustments
+        - Weather variance: ±5% production variance
+        - Equipment degradation: efficiency loss over time
+        - Cash flow calculation based on PPA, OpEx, and taxes
+        
+        Formula for each project:
+        1. adjusted_production = annual_prod * variance * (1 - degradation_rate)
+        2. monthly_prod = adjusted_production / 12
+        3. monthly_revenue = monthly_prod * ppa_price
+        4. monthly_opex = (opex_annual + insurance_annual) / 12
+        5. net_cf = (monthly_revenue - monthly_opex) * (1 - tax_rate)
         
         Note: This modifies the in-memory data, not the JSON file.
+        
+        Returns:
+            Dict with simulation summary (before/after values)
         """
-        for project in self.projects:
-            if project.status != 'operational':
+        simulation_results = []
+        
+        for project_data in self.data.get('projects', []):
+            if project_data.get('status') != 'operational':
                 continue
             
-            # Base degradation factor (0.5% annual = 0.042% monthly)
-            degradation = 0.99958
+            project_id = project_data['id']
+            project_type = project_data.get('type', 'solar')
+            old_cash_flow = project_data.get('cash_flow_this_month', 0)
             
-            # Weather variance: random ±10%
-            weather_factor = 1.0 + random.uniform(-0.10, 0.10)
+            # Get degradation rate (default: 0.5% for solar, 0.8% for wind, 2% for storage)
+            degradation_rate = project_data.get('degradation_rate', 0.005)
             
-            # Apply factors to cash flow
-            new_cash_flow = int(
-                project.cash_flow_this_month * degradation * weather_factor
-            )
+            # Get tax rate (default: 21%)
+            tax_rate = project_data.get('tax_rate', 0.21)
             
-            project.cash_flow_this_month = max(0, new_cash_flow)
+            # Step 1: Apply weather variance (-5% to +5%)
+            weather_variance = random.uniform(0.95, 1.05)
+            
+            if project_type in ('solar', 'wind'):
+                # Solar/Wind: Use kWh production
+                annual_production = project_data.get('annual_production_kwh', 0)
+                ppa_price = project_data.get('ppa_price_per_kwh', 0.06)
+                
+                # Step 1: Calculate adjusted production
+                # adjusted_production = annual_prod * variance * (1 - degradation)
+                adjusted_production = annual_production * weather_variance * (1 - degradation_rate)
+                
+                # Update current year production
+                project_data['current_year_production_kwh'] = int(adjusted_production)
+                
+                # Step 2: Monthly production
+                monthly_production = adjusted_production / 12
+                
+                # Step 3: Monthly revenue
+                monthly_revenue = monthly_production * ppa_price
+                
+            elif project_type == 'storage':
+                # Storage: Use MWh cycles
+                capacity_mwh = project_data.get('capacity_mwh', 0)
+                annual_cycles = project_data.get('annual_cycles', 365)
+                ppa_price = project_data.get('ppa_price_per_mwh', 85)
+                
+                # Adjusted annual revenue (storage degrades faster)
+                adjusted_cycles = annual_cycles * weather_variance * (1 - degradation_rate)
+                annual_revenue_mwh = capacity_mwh * adjusted_cycles
+                
+                project_data['annual_revenue_mwh'] = int(annual_revenue_mwh)
+                
+                # Monthly revenue
+                monthly_revenue = (annual_revenue_mwh * ppa_price) / 12
+                
+            else:
+                # Unknown type, skip
+                continue
+            
+            # Step 4: Monthly operating expenses
+            opex_annual = project_data.get('operating_expenses_annual', 0)
+            insurance_annual = project_data.get('insurance_annual', 0)
+            monthly_opex = (opex_annual + insurance_annual) / 12
+            
+            # Step 5: Gross profit
+            gross_profit = monthly_revenue - monthly_opex
+            
+            # Step 6: Net cash flow after tax
+            net_cash_flow = gross_profit * (1 - tax_rate)
+            
+            # Ensure non-negative (floor at 0)
+            net_cash_flow = max(0, int(net_cash_flow))
+            
+            # Update project cash flow
+            project_data['cash_flow_this_month'] = net_cash_flow
+            
+            # Also update the Project dataclass if it exists
+            for p in self.projects:
+                if p.id == project_id:
+                    p.cash_flow_this_month = net_cash_flow
+                    break
+            
+            simulation_results.append({
+                'id': project_id,
+                'type': project_type,
+                'old_cash_flow': old_cash_flow,
+                'new_cash_flow': net_cash_flow,
+                'weather_variance': round(weather_variance, 4),
+                'degradation_rate': degradation_rate,
+                'monthly_revenue': int(monthly_revenue),
+                'monthly_opex': int(monthly_opex)
+            })
+        
+        return {
+            'timestamp': int(time.time()),
+            'projects_simulated': len(simulation_results),
+            'results': simulation_results
+        }
     
     def get_total_monthly_yield(self) -> int:
         """
@@ -231,15 +320,49 @@ if __name__ == '__main__':
         action='store_true',
         help='Show detailed NAV breakdown'
     )
+    parser.add_argument(
+        '--simulate', '-s',
+        type=int,
+        default=0,
+        metavar='MONTHS',
+        help='Run monthly simulation for N months before computing NAV'
+    )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='Random seed for reproducible simulations'
+    )
     
     args = parser.parse_args()
     
+    # Set random seed if provided
+    if args.seed is not None:
+        random.seed(args.seed)
+        print(f"Using random seed: {args.seed}")
+    
     try:
         engine = NavEngine(args.projects)
+        
+        # Run simulation if requested
+        if args.simulate > 0:
+            print(f"\n--- Running {args.simulate} Month Simulation ---")
+            for month in range(1, args.simulate + 1):
+                result = engine.simulate_monthly_yield()
+                total_yield = engine.get_total_monthly_yield()
+                print(f"Month {month}: Total yield = ${total_yield:,}")
+                
+                if args.verbose:
+                    for proj in result['results']:
+                        print(f"  {proj['id']}: ${proj['old_cash_flow']:,} -> ${proj['new_cash_flow']:,} "
+                              f"(weather: {proj['weather_variance']:.2%})")
+            print()
+        
         nav_cents, timestamp = engine.compute_nav()
         
         print(f"NAV: ${nav_cents / 100:.2f} ({nav_cents} cents)")
         print(f"Timestamp: {timestamp}")
+        print(f"Total Monthly Yield: ${engine.get_total_monthly_yield():,}")
         
         if args.verbose:
             breakdown = engine.get_nav_breakdown()
@@ -254,4 +377,6 @@ if __name__ == '__main__':
             
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         exit(1)
