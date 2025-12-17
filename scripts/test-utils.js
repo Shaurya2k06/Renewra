@@ -92,13 +92,13 @@ async function airdropSol(pubkey, amount = 2) {
       amount * LAMPORTS_PER_SOL
     );
     await connection.confirmTransaction(signature);
-    console.log(`✅ Airdrop successful! Signature: ${signature}`);
+    console.log(` Airdrop successful! Signature: ${signature}`);
     
     const balance = await getBalance(pubkey);
     console.log(`   New balance: ${balance} SOL`);
     return signature;
   } catch (e) {
-    console.error(`❌ Airdrop failed: ${e.message}`);
+    console.error(` Airdrop failed: ${e.message}`);
     console.log('   Note: Devnet airdrops are rate-limited. Try again in a few seconds.');
     return null;
   }
@@ -134,10 +134,10 @@ async function checkProgramState() {
       console.log(`  Previous NAV: $${(previousNav / 100).toFixed(2)}`);
       console.log(`  Last Updated: ${new Date(timestamp * 1000).toLocaleString()}`);
     } else {
-      console.log('❌ NAV Oracle account not found - program may not be initialized');
+      console.log(' NAV Oracle account not found - program may not be initialized');
     }
   } catch (e) {
-    console.log('❌ Error reading NAV Oracle:', e.message);
+    console.log(' Error reading NAV Oracle:', e.message);
   }
   console.log('');
   
@@ -149,7 +149,7 @@ async function checkProgramState() {
     console.log(`  Total Supply: ${supply.toLocaleString()} REI`);
     console.log(`  Decimals: ${mintInfo.decimals}`);
   } catch (e) {
-    console.log('❌ Error reading REIT Mint:', e.message);
+    console.log(' Error reading REIT Mint:', e.message);
   }
   console.log('');
   
@@ -185,7 +185,7 @@ async function checkProgramState() {
       console.log(`  Mgmt Fee: ${mgmtFee / 100}%`);
     }
   } catch (e) {
-    console.log('❌ Error reading Governance:', e.message);
+    console.log(' Error reading Governance:', e.message);
   }
 }
 

@@ -66,7 +66,7 @@ async function main() {
   const treasuryAccount = await connection.getAccountInfo(treasuryUsdcAta);
   
   if (mintAccount && treasuryAccount) {
-    console.log("\n✅ REIT Mint and Treasury already initialized!");
+    console.log("\n REIT Mint and Treasury already initialized!");
     return;
   }
   
@@ -112,7 +112,7 @@ async function main() {
   }
   
   if (tx.instructions.length === 0) {
-    console.log("✅ Nothing to initialize - all accounts exist!");
+    console.log(" Nothing to initialize - all accounts exist!");
     return;
   }
   
@@ -120,11 +120,11 @@ async function main() {
     const signature = await connection.sendTransaction(tx, [deployerKeypair]);
     await connection.confirmTransaction(signature);
     
-    console.log("✅ Initialization successful!");
+    console.log(" Initialization successful!");
     console.log("Signature:", signature);
     console.log("Explorer: https://explorer.solana.com/tx/" + signature + "?cluster=devnet");
   } catch (e) {
-    console.error("❌ Failed:", e.message);
+    console.error(" Failed:", e.message);
     if (e.logs) {
       console.log("\nLogs:");
       e.logs.forEach(log => console.log("  ", log));

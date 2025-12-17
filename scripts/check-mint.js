@@ -16,7 +16,7 @@ console.log('Bump:', bump);
 // Check if it exists
 const accountInfo = await connection.getAccountInfo(reitMint);
 if (accountInfo) {
-  console.log('✅ Mint account exists');
+  console.log(' Mint account exists');
   console.log('Owner:', accountInfo.owner.toBase58());
   console.log('Data length:', accountInfo.data.length);
   
@@ -29,5 +29,5 @@ if (accountInfo) {
     console.log('Could not parse as mint:', e.message);
   }
 } else {
-  console.log('❌ Mint account does not exist - program may not be fully initialized');
+  console.log(' Mint account does not exist - program may not be fully initialized');
 }

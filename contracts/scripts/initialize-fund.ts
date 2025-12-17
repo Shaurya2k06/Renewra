@@ -131,7 +131,7 @@ async function main() {
     
     try {
         const signature = await provider.sendAndConfirm(tx, [deployerKeypair]);
-        console.log("✅ Fund initialized!");
+        console.log(" Fund initialized!");
         console.log("Signature:", signature);
         console.log("Explorer: https://explorer.solana.com/tx/" + signature + "?cluster=devnet");
         
@@ -147,7 +147,7 @@ async function main() {
         }
         
     } catch (e: any) {
-        console.error("❌ Initialization failed:", e.message);
+        console.error(" Initialization failed:", e.message);
         if (e.logs) {
             console.log("\nProgram logs:");
             e.logs.forEach((log: string) => console.log("  ", log));

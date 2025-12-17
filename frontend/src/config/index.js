@@ -64,11 +64,11 @@ export const config = {
 
 // Validation on startup
 if (!config.solana.programId) {
-  console.error('❌ VITE_PROGRAM_ID is not configured');
+  console.error(' VITE_PROGRAM_ID is not configured');
 }
 
 if (!config.solana.usdcMint) {
-  console.error('❌ VITE_USDC_MINT is not configured');
+  console.error(' VITE_USDC_MINT is not configured');
 }
 
 export default config;

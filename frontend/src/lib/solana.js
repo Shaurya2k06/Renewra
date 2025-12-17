@@ -539,12 +539,28 @@ export function formatCompact(num) {
  * @returns {string} Formatted date string
  */
 export function formatDate(timestamp) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(timestamp));
+  // Handle invalid timestamps (0, null, undefined, NaN)
+  if (!timestamp || timestamp === 0 || isNaN(timestamp)) {
+    return 'Pending';
+  }
+  
+  try {
+    const date = new Date(timestamp);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
 }
 
 /**
