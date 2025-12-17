@@ -14,8 +14,10 @@ export const PROGRAM_ID = new PublicKey(
   import.meta.env.VITE_PROGRAM_ID || '5nU2nHv2Pw9bWWL2BsTotX6mDaP1fTj1EZ7JMXAe6T5Z'
 );
 export const RPC_URL = import.meta.env.VITE_DEVNET_RPC || 'https://api.devnet.solana.com';
+
+// Devnet USDC - Circle's official devnet USDC
 export const USDC_MINT = new PublicKey(
-  import.meta.env.VITE_USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+  import.meta.env.VITE_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
 );
 export const GOVERNANCE_PDA = new PublicKey(
   import.meta.env.VITE_GOVERNANCE_PDA || 'ELZEwTd7oaHaYmT9BrcweRv4xEJYp9vR4ceskJKteqSG'
@@ -35,8 +37,8 @@ const REIT_MINT_SEED = 'reit_mint';
 
 // Anchor discriminators (sha256("global:<instruction_name>")[0:8])
 export const DISCRIMINATORS = {
-  subscribe: Buffer.from([254, 28, 119, 91, 248, 99, 79, 31]),
-  requestRedeem: Buffer.from([214, 28, 225, 51, 224, 231, 183, 193]),
+  subscribe: Buffer.from([254, 28, 191, 138, 156, 179, 183, 53]),
+  requestRedeem: Buffer.from([105, 49, 44, 38, 207, 241, 33, 173]),
 };
 
 // ============================================================================

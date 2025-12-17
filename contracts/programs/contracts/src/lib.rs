@@ -21,6 +21,11 @@ pub mod renewra {
         instructions::initialize_fund::handler(ctx, params)
     }
 
+    /// Initialize the REIT token mint (must be called once after initialize_fund)
+    pub fn initialize_mint(ctx: Context<InitializeMint>) -> Result<()> {
+        instructions::initialize_mint::handler(ctx)
+    }
+
     /// Submit a new NAV value (oracle signer only)
     pub fn submit_nav(ctx: Context<SubmitNav>, new_nav: u64) -> Result<()> {
         instructions::submit_nav::handler(ctx, new_nav)
