@@ -32,7 +32,18 @@ export default function NavHistoryPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-12">
       {/* Header */}
-      <div cldiv className="flex items-center gap-2 mb-1">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">NAV History</h1>
+        <p className="text-gray-400">
+          Track the Net Asset Value of the Renewra fund over time
+        </p>
+      </div>
+
+      {/* Current NAV Card */}
+      <div className="bg-gradient-to-r from-green-900/30 to-green-800/10 border border-green-700/50 rounded-xl p-6 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
               <DollarSign className="w-5 h-5 text-green-400" />
               <p className="text-green-400 text-sm font-medium">Current NAV</p>
             </div>
@@ -57,46 +68,14 @@ export default function NavHistoryPage() {
               </div>
               <p className={`font-semibold ${change30d && parseFloat(change30d) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {change30d ? `${parseFloat(change30d) >= 0 ? '+' : ''}${change30d}%` : 'N/A'}
-              
-              {formatUSD(fundStats?.currentNav || 5000)}
-            </p>
-          </div>
-          <div className="flex gap-8">
-            <div>
-              <p className="text-gray-400 text-sm">24h Change</p>
-              <p className="text-green-400 font-semibold">+0.08%</p>
-            </div>
-            <div>
-              <p className="text-gray-400 text-sm">30d Change</p>
-              <p className="text-green-400 font-semibold">+0.54%</p>
+              </p>
             </div>
             <div>
               <p className="text-gray-400 text-sm">Last Update</p>
               <p className="text-white font-medium">
-                {formatDate(fundStats?.lastNavUpdate || Date.now())}
+                {fundStats?.lastNavUpdate ? formatDate(fundStats.lastNavUpdate) : 'N/A'}
               </p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* NAV Chart */}
-      <div className="bg-gray-800/30 border border-gray-700 rounded-xl p-6 mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">NAV Over Time</h2>
-          <div className="flex gap-2">
-            {['7D', '30D', '90D', '1Y', 'ALL'].map((period) => (
-              <button
-                key={period}
-                className={`px-3 py-1 rounded text-sm ${
-                  period === '30D' 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                {period}
-              </button>
-            ))}
           </div>
         </div>
         <NavChart data={navHistory} />
@@ -129,7 +108,7 @@ export default function NavHistoryPage() {
                       <td className="py-3 text-white font-medium">
                         {formatUSD(snapshot.nav)}
                       </td>
-                      <td className={`py-3 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                      <td className={`py-3 text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}> 
                         {isPositive ? '+' : ''}{change}%
                       </td>
                     </tr>
@@ -147,25 +126,6 @@ export default function NavHistoryPage() {
             <p className="text-gray-400">
               Yield distributions will be recorded here when the fund starts generating returns from renewable energy projects.
             </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Oracle Info */}
-      <div className="mt-8 bg-gray-800/30 border border-gray-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">About NAV Oracle</h3>
-        <div className="grid md:grid-cols-3 gap-6 text-sm">
-          <div>
-            <p className="text-gray-400 mb-1">Update Frequency</p>
-            <p className="text-white">Hourly (on-chain)</p>
-          </div>
-          <div>
-            <p className="text-gray-400 mb-1">Oracle Address</p>
-            <p className="text-white font-mono text-xs">62KRcX...SdCf</p>
-          </div>
-          <div>
-            <p className="text-gray-400 mb-1">Data Source</p>
-            <p className="text-white">Portfolio valuation from project cash flows</p>
           </div>
         </div>
       </div>

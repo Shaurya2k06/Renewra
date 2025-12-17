@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { AlertTriangle } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { AlertTriangle, CheckCircle, Lock } from 'lucide-react';
 import { useReiToken } from '../lib/useReiToken';
 import { formatUSD, formatDate, shortenPubkey } from '../lib/solana';
 import { toDisplayAmount } from '../lib/types';
@@ -83,7 +83,9 @@ export default function RedeemPage() {
   if (!connected) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <div className="text-6xl mb-6">🔒</div>
+        <div className="flex justify-center mb-6">
+          <Lock className="h-12 w-12 text-gray-500" />
+        </div>
         <h1 className="text-3xl font-bold text-white mb-4">
           Connect Your Wallet
         </h1>
@@ -119,16 +121,19 @@ export default function RedeemPage() {
           
           {/* Success Message */}
           {txSignature && (
-            <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
-              <p className="text-green-400 font-medium mb-2">✓ Redemption request submitted!</p>
-              <a 
-                href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-green-300 text-sm hover:underline break-all"
-              >
-                View transaction ↗
-              </a>
+            <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-green-400 flex-shrink-0" />
+              <div>
+                <p className="text-green-400 font-medium mb-2">Redemption request submitted!</p>
+                <a 
+                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-300 text-sm hover:underline break-all"
+                >
+                  View transaction ↗
+                </a>
+              </div>
             </div>
           )}
 

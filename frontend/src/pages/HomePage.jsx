@@ -44,7 +44,7 @@ export default function HomePage() {
     <div className="space-y-16">
       {/* Hero Section */}
       <section className="relative py-20 px-4">
-        <div className="absolute inset-0 bg-gradient-to-b from-green-900/20 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-green-900/20 to-transparent" />
         <div className="relative max-w-4xl mx-auto text-center">
           {/* Logo */}
           <div className="flex justify-center mb-6">
@@ -118,7 +118,11 @@ export default function HomePage() {
 
       {/* How It Works */}
       <section className="max-w-7xl mx-auto px-4">
-        <h2 claWallet className="w-8 h-8 text-green-400" />
+        <h2 className="text-2xl font-bold text-white mb-12">How It Works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-green-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Wallet className="w-8 h-8 text-green-400" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Subscribe with USDC</h3>
             <p className="text-gray-400 text-sm">
@@ -138,11 +142,7 @@ export default function HomePage() {
           </div>
           <div className="text-center">
             <div className="w-16 h-16 bg-green-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <RefreshCw className="w-8 h-8 text-green-400" /
-          </div>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">3️⃣</span>
+              <RefreshCw className="w-8 h-8 text-green-400" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Redeem Anytime</h3>
             <p className="text-gray-400 text-sm">
