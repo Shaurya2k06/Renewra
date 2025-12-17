@@ -7,9 +7,11 @@ use crate::state::{Governance, NavOracle};
 
 #[derive(Accounts)]
 pub struct Subscribe<'info> {
+    /// Investor signing the transaction
     #[account(mut)]
     pub user: Signer<'info>,
 
+    /// Governance account for fee params and pause check
     #[account(
         seeds = [Governance::SEED],
         bump = governance.bump,
@@ -17,105 +19,117 @@ pub struct Subscribe<'info> {
     )]
     pub governance: Account<'info, Governance>,
 
+    /// NAV oracle for current price
     #[account(
         seeds = [NavOracle::SEED],
-        bump = nav_oracle.bump
+        bump = nav_oracle.bump,
+        constraint = nav_oracle.latest_nav > 0 @ RenewraError::InvalidNavPrice
     )]
     pub nav_oracle: Account<'info, NavOracle>,
 
-    /// User's USDC token account
-    #[account(mut)]
+    /// User's USDC token account (source of funds)
+    #[account(
+        mut,
+        constraint = user_usdc_account.owner == user.key() @ RenewraError::InvalidAuthority
+    )]
     pub user_usdc_account: Account<'info, TokenAccount>,
 
-    /// Treasury USDC account
+    /// Treasury PDA token account (receives USDC)
     #[account(mut)]
-    pub treasury_usdc_account: Account<'info, TokenAccount>,
+    pub treasury: Account<'info, TokenAccount>,
 
-    /// User's Renewra token account
-    #[account(mut)]
-    pub user_token_account: Account<'info, TokenAccount>,
+    /// User's REI token account (receives minted tokens)
+    #[account(
+        mut,
+        constraint = user_reit_account.owner == user.key() @ RenewraError::InvalidAuthority
+    )]
+    pub user_reit_account: Account<'info, TokenAccount>,
 
-    /// Renewra token mint (mint authority must be governance PDA)
+    /// REI token mint (mint authority = governance PDA)
     #[account(mut)]
-    pub token_mint: Account<'info, Mint>,
+    pub reit_mint: Account<'info, Mint>,
 
     pub token_program: Program<'info, Token>,
 }
 
 pub fn handler(ctx: Context<Subscribe>, usdc_amount: u64) -> Result<()> {
+    // Validate amount
     require!(usdc_amount > 0, RenewraError::InvalidAmount);
     
     let governance = &ctx.accounts.governance;
     let nav_oracle = &ctx.accounts.nav_oracle;
-    let clock = Clock::get()?;
     
-    // Calculate mint fee
-    let fee_amount = usdc_amount
-        .checked_mul(governance.mint_fee_bps as u64)
+    // Step 1: Read current NAV (in cents, e.g., 1000 = $10.00)
+    let nav_cents = nav_oracle.latest_nav;
+    
+    // Step 2: Calculate mint fee: fee = usdc_amount * mint_fee_bps / 10000
+    let fee_amount = (usdc_amount as u128)
+        .checked_mul(governance.mint_fee_bps as u128)
         .ok_or(RenewraError::ArithmeticOverflow)?
         .checked_div(10000)
-        .ok_or(RenewraError::ArithmeticOverflow)?;
+        .ok_or(RenewraError::ArithmeticOverflow)? as u64;
     
+    // Step 3: Calculate net USDC after fee
     let net_usdc = usdc_amount
         .checked_sub(fee_amount)
         .ok_or(RenewraError::ArithmeticOverflow)?;
     
-    // Calculate tokens to mint: (net_usdc * 10^6) / nav_in_cents
-    // NAV is stored in cents, USDC has 6 decimals, tokens have 6 decimals
-    // tokens = (usdc_amount * 100) / nav_cents for proper decimal handling
-    let tokens_to_mint = net_usdc
-        .checked_mul(100) // Convert USDC to cents equivalent
+    // Step 4: Calculate tokens to mint using u128 for precision
+    // Formula: tokens = (net_usdc * 10^6) / nav_cents * 100
+    // net_usdc is in USDC smallest units (6 decimals), nav is in cents
+    // Result is in token smallest units (6 decimals)
+    // 
+    // Example: 100 USDC (100_000_000 smallest), NAV = 1000 cents ($10)
+    // tokens = (100_000_000 * 100) / 1000 = 10_000_000 (10 tokens with 6 decimals)
+    let tokens_to_mint = (net_usdc as u128)
+        .checked_mul(100) // Convert to cents precision
         .ok_or(RenewraError::ArithmeticOverflow)?
-        .checked_div(nav_oracle.latest_nav)
-        .ok_or(RenewraError::ArithmeticOverflow)?
-        .checked_mul(1_000_000) // Apply token decimals
-        .ok_or(RenewraError::ArithmeticOverflow)?
-        .checked_div(100) // Adjust back
-        .ok_or(RenewraError::ArithmeticOverflow)?;
+        .checked_div(nav_cents as u128)
+        .ok_or(RenewraError::ArithmeticOverflow)? as u64;
     
     require!(tokens_to_mint > 0, RenewraError::InvalidAmount);
     
-    // Transfer USDC from user to treasury
+    // Step 5: Transfer full usdc_amount from user to treasury
+    // (fee stays in treasury as part of fund balance)
     let transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.user_usdc_account.to_account_info(),
-            to: ctx.accounts.treasury_usdc_account.to_account_info(),
+            to: ctx.accounts.treasury.to_account_info(),
             authority: ctx.accounts.user.to_account_info(),
         },
     );
     token::transfer(transfer_ctx, usdc_amount)?;
     
-    // Mint Renewra tokens to user
-    // Sign with governance PDA
+    // Step 6: Mint REI tokens to user using governance PDA as signer
     let seeds = &[Governance::SEED, &[governance.bump]];
     let signer_seeds = &[&seeds[..]];
     
     let mint_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         MintTo {
-            mint: ctx.accounts.token_mint.to_account_info(),
-            to: ctx.accounts.user_token_account.to_account_info(),
+            mint: ctx.accounts.reit_mint.to_account_info(),
+            to: ctx.accounts.user_reit_account.to_account_info(),
             authority: ctx.accounts.governance.to_account_info(),
         },
         signer_seeds,
     );
     token::mint_to(mint_ctx, tokens_to_mint)?;
     
-    // Emit event
+    // Step 7: Emit SubscribeEvent
     emit!(SubscribeEvent {
         user: ctx.accounts.user.key(),
         usdc_amount,
         tokens_minted: tokens_to_mint,
-        nav_at_subscription: nav_oracle.latest_nav,
-        timestamp: clock.unix_timestamp,
+        nav_at_subscription: nav_cents,
     });
     
     msg!(
-        "User subscribed: {} USDC -> {} tokens at NAV {}",
+        "Subscribe: {} USDC (fee: {}) -> {} tokens at NAV {} cents",
         usdc_amount,
+        fee_amount,
         tokens_to_mint,
-        nav_oracle.latest_nav
+        nav_cents
     );
     
     Ok(())

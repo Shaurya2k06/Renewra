@@ -65,7 +65,6 @@ pub fn handler(ctx: Context<InitializeFund>, params: InitializeFundParams) -> Re
     nav_oracle.latest_nav = params.initial_nav;
     nav_oracle.previous_nav = params.initial_nav;
     nav_oracle.timestamp = Clock::get()?.unix_timestamp;
-    nav_oracle.oracle_signer = params.oracle_signer;
     nav_oracle.bump = ctx.bumps.nav_oracle;
 
     // Initialize RedemptionQueue

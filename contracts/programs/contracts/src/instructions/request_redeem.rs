@@ -70,11 +70,10 @@ pub fn handler(ctx: Context<RequestRedeem>, token_amount: u64) -> Result<()> {
     
     // Emit event
     emit!(RedeemRequestEvent {
-        user: ctx.accounts.user.key(),
+        requester: ctx.accounts.user.key(),
         token_amount,
-        nav_at_request: nav_oracle.latest_nav,
+        requested_at: clock.unix_timestamp,
         request_id: redemption_queue.requests.len() as u64,
-        timestamp: clock.unix_timestamp,
     });
     
     msg!(

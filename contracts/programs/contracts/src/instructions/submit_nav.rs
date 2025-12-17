@@ -2,15 +2,24 @@ use anchor_lang::prelude::*;
 
 use crate::errors::RenewraError;
 use crate::events::NavUpdateEvent;
-use crate::state::NavOracle;
+use crate::state::{Governance, NavOracle};
 
 #[derive(Accounts)]
 pub struct SubmitNav<'info> {
+    /// Oracle signer - must match governance.oracle_signer
     #[account(
-        constraint = oracle_authority.key() == nav_oracle.oracle_signer @ RenewraError::OracleMismatch
+        constraint = oracle_signer.key() == governance.oracle_signer @ RenewraError::OracleMismatch
     )]
-    pub oracle_authority: Signer<'info>,
+    pub oracle_signer: Signer<'info>,
 
+    /// Governance account to verify oracle signer
+    #[account(
+        seeds = [Governance::SEED],
+        bump = governance.bump
+    )]
+    pub governance: Account<'info, Governance>,
+
+    /// NAV oracle PDA to update
     #[account(
         mut,
         seeds = [NavOracle::SEED],
@@ -26,19 +35,21 @@ pub fn handler(ctx: Context<SubmitNav>, new_nav: u64) -> Result<()> {
     // Validate NAV is reasonable (non-zero)
     require!(new_nav > 0, RenewraError::InvalidNavPrice);
     
-    // Store previous NAV
+    // Step 1: Store previous NAV
     nav_oracle.previous_nav = nav_oracle.latest_nav;
     
-    // Update to new NAV
+    // Step 2: Update latest NAV
     nav_oracle.latest_nav = new_nav;
+    
+    // Step 3: Update timestamp
     nav_oracle.timestamp = clock.unix_timestamp;
     
-    // Emit event
+    // Step 4: Emit NavUpdateEvent
     emit!(NavUpdateEvent {
         old_nav: nav_oracle.previous_nav,
         new_nav: nav_oracle.latest_nav,
-        total_supply: 0, // TODO: Pass actual supply
         timestamp: clock.unix_timestamp,
+        oracle_signer: ctx.accounts.oracle_signer.key(),
     });
     
     msg!("NAV updated: {} -> {} cents", nav_oracle.previous_nav, new_nav);

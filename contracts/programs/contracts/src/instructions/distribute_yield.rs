@@ -26,7 +26,6 @@ pub fn handler(ctx: Context<DistributeYield>, yield_amount: u64) -> Result<()> {
     require!(yield_amount > 0, RenewraError::InvalidAmount);
     
     let token_mint = &ctx.accounts.token_mint;
-    let clock = Clock::get()?;
     
     let total_supply = token_mint.supply;
     require!(total_supply > 0, RenewraError::InvalidAmount);
@@ -41,10 +40,9 @@ pub fn handler(ctx: Context<DistributeYield>, yield_amount: u64) -> Result<()> {
     
     // Emit event (frontend will calculate individual yields)
     emit!(DistributeYieldEvent {
-        total_yield_amount: yield_amount,
-        per_token_yield,
-        total_supply,
-        timestamp: clock.unix_timestamp,
+        yield_amount,
+        total_token_supply: total_supply,
+        per_token_yield: per_token_yield as u128,
     });
     
     msg!(

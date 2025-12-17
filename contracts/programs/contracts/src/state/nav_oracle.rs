@@ -14,9 +14,6 @@ pub struct NavOracle {
     /// Unix timestamp of last NAV update
     pub timestamp: i64,
     
-    /// Oracle signer public key (must match Governance.oracle_signer)
-    pub oracle_signer: Pubkey,
-    
     /// Bump seed for PDA derivation
     pub bump: u8,
 }
@@ -25,6 +22,6 @@ impl NavOracle {
     /// PDA seed for nav_oracle account
     pub const SEED: &'static [u8] = b"nav_oracle";
     
-    /// Space: 8 (discriminator) + 8 + 8 + 8 + 32 + 1 = 65 bytes
-    pub const SPACE: usize = 8 + 8 + 8 + 8 + 32 + 1;
+    /// Space: 8 (discriminator) + 8 + 8 + 8 + 1 = 33 bytes
+    pub const SPACE: usize = 8 + 8 + 8 + 8 + 1;
 }
