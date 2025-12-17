@@ -1,39 +1,42 @@
 /**
  * Solana RPC helper functions for Renewra
  * Handles all blockchain interactions, account decoding, and transaction building
+ * Production-ready with error handling, caching, and rate limiting
  */
 
 import { Connection, PublicKey, TransactionInstruction, Transaction } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import config from '../config';
 
 // ============================================================================
 // Environment Configuration
 // ============================================================================
 
-export const PROGRAM_ID = new PublicKey(
-  import.meta.env.VITE_PROGRAM_ID || '5nU2nHv2Pw9bWWL2BsTotX6mDaP1fTj1EZ7JMXAe6T5Z'
-);
-export const RPC_URL = import.meta.env.VITE_DEVNET_RPC || 'https://api.devnet.solana.com';
-
-// Devnet USDC - Circle's official devnet USDC
-export const USDC_MINT = new PublicKey(
-  import.meta.env.VITE_USDC_MINT || '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'
-);
-export const GOVERNANCE_PDA = new PublicKey(
-  import.meta.env.VITE_GOVERNANCE_PDA || 'ELZEwTd7oaHaYmT9BrcweRv4xEJYp9vR4ceskJKteqSG'
-);
-export const NAV_ORACLE_PDA = new PublicKey(
-  import.meta.env.VITE_NAV_ORACLE_PDA || 'BykxytfhUMsrrkDKQMrHhXFKGJD79CPWYgTqpkiXkxof'
-);
-export const REDEMPTION_QUEUE_PDA = new PublicKey(
-  import.meta.env.VITE_REDEMPTION_QUEUE_PDA || 'BMuoAzAcMjzeH2NAee3qU9kGYu9Aao6wk5Me5VKuXD5o'
-);
+export const PROGRAM_ID = new PublicKey(config.solana.programId);
+export const RPC_URL = config.solana.rpcUrl;
+export const USDC_MINT = new PublicKey(config.solana.usdcMint);
 
 // PDA Seeds
-const GOVERNANCE_SEED = 'governance';
-const NAV_ORACLE_SEED = 'nav_oracle';
-const TREASURY_SEED = 'treasury';
-const REIT_MINT_SEED = 'reit_mint';
+const GOVERNANCE_SEED = config.seeds.governance;
+const NAV_ORACLE_SEED = config.seeds.navOracle;
+const TREASURY_SEED = config.seeds.treasury;
+const REIT_MINT_SEED = config.seeds.reitMint;
+
+// Derive PDAs
+export const GOVERNANCE_PDA = PublicKey.findProgramAddressSync(
+  [Buffer.from(GOVERNANCE_SEED)],
+  PROGRAM_ID
+)[0];
+
+export const NAV_ORACLE_PDA = PublicKey.findProgramAddressSync(
+  [Buffer.from(NAV_ORACLE_SEED)],
+  PROGRAM_ID
+)[0];
+
+export const REDEMPTION_QUEUE_PDA = PublicKey.findProgramAddressSync(
+  [Buffer.from(config.seeds.redemptionQueue)],
+  PROGRAM_ID
+)[0];
 
 // Anchor discriminators (sha256("global:<instruction_name>")[0:8])
 export const DISCRIMINATORS = {
