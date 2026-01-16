@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import VideoBackground from '../components/VideoBackground';
 import NavChart from '../components/NavChart';
-import ProjectCard from '../components/ProjectCard'; // Assuming you kept ProjectCard
+import ProjectCard from '../components/ProjectCard';
 import { useStore } from '../lib/store';
+import { fetchProjects, fetchNav, checkOracleHealth } from '../lib/oracleApi';
 import { MOCK_PROJECTS } from '../lib/mockData';
 import { formatUSD, formatCompact, formatDate } from '../lib/solana';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
@@ -15,27 +16,77 @@ import {
     Clock,
     Calendar,
     ArrowUpRight,
-    ArrowDownRight
+    ArrowDownRight,
+    AlertCircle,
+    Wifi,
+    WifiOff
 } from 'lucide-react';
 import { PROJECT_TYPES } from '../lib/types';
 
 export default function PortfolioPage() {
-    const [activeTab, setActiveTab] = useState('assets'); // 'assets' or 'performance'
+    const [activeTab, setActiveTab] = useState('assets');
     const { navHistory, fundStats, refreshNavHistory } = useStore();
+
+    // Oracle data state
+    const [projects, setProjects] = useState([]);
+    const [oracleConnected, setOracleConnected] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         refreshNavHistory();
+        loadProjectsData();
     }, []);
 
+    const loadProjectsData = async () => {
+        setLoading(true);
+
+        // Check if oracle is available
+        const isHealthy = await checkOracleHealth();
+        setOracleConnected(isHealthy);
+
+        if (isHealthy) {
+            const oracleProjects = await fetchProjects();
+            if (oracleProjects && oracleProjects.length > 0) {
+                // Transform oracle data to match ProjectCard expected format
+                const transformedProjects = oracleProjects.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    type: p.type,
+                    location: p.location,
+                    capacity_mw: p.capacity_mw || p.capacity_mwh || 0,
+                    valuation: p.dcf_valuation,
+                    annual_revenue: p.annual_revenue || 0,
+                    irr: ((p.annual_revenue / p.dcf_valuation) * 100).toFixed(1),
+                    offtaker: 'PPA Contract',
+                    completion_year: p.commission_date?.split('-')[0] || 'N/A',
+                    status: p.status,
+                    // New oracle fields for price display
+                    ppa_price: p.price_display,
+                    cash_flow_this_month: p.cash_flow_this_month,
+                    ppa_price_per_kwh: p.ppa_price_per_kwh,
+                    ppa_price_per_mwh: p.ppa_price_per_mwh
+                }));
+                setProjects(transformedProjects);
+            } else {
+                // Fallback to mock data
+                setProjects(MOCK_PROJECTS);
+            }
+        } else {
+            // Oracle not available, use mock data
+            setProjects(MOCK_PROJECTS);
+        }
+
+        setLoading(false);
+    };
+
     // --- Asset Data Preparation ---
-    // Aggregate stats by project type
-    const typeStats = MOCK_PROJECTS.reduce((acc, project) => {
+    const typeStats = projects.reduce((acc, project) => {
         if (!acc[project.type]) {
             acc[project.type] = { capacity: 0, valuation: 0, revenue: 0 };
         }
-        acc[project.type].capacity += project.capacity_mw;
-        acc[project.type].valuation += project.valuation;
-        acc[project.type].revenue += project.annual_revenue;
+        acc[project.type].capacity += project.capacity_mw || 0;
+        acc[project.type].valuation += project.valuation || 0;
+        acc[project.type].revenue += project.annual_revenue || 0;
         return acc;
     }, {});
 
@@ -53,9 +104,9 @@ export default function PortfolioPage() {
         opacity: type === 'solar' ? 1.0 : type === 'wind' ? 0.7 : 0.4,
     }));
 
-    const totalCapacity = MOCK_PROJECTS.reduce((sum, p) => sum + p.capacity_mw, 0);
-    const totalValuation = MOCK_PROJECTS.reduce((sum, p) => sum + p.valuation, 0);
-    const totalRevenue = MOCK_PROJECTS.reduce((sum, p) => sum + p.annual_revenue, 0);
+    const totalCapacity = projects.reduce((sum, p) => sum + (p.capacity_mw || 0), 0);
+    const totalValuation = projects.reduce((sum, p) => sum + (p.valuation || 0), 0);
+    const totalRevenue = projects.reduce((sum, p) => sum + (p.annual_revenue || 0), 0);
 
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -100,6 +151,26 @@ export default function PortfolioPage() {
                     <p className="text-body-large text-white/60 max-w-2xl mx-auto">
                         Transparent breakdown of underlying renewable assets and historical performance data.
                     </p>
+
+                    {/* Oracle Status Indicator */}
+                    <div className="flex justify-center mt-6">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm ${oracleConnected
+                            ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                            : 'bg-white/5 border border-white/10 text-white/40'
+                            }`}>
+                            {oracleConnected ? (
+                                <>
+                                    <Wifi className="w-4 h-4" />
+                                    <span>Live Oracle Data</span>
+                                </>
+                            ) : (
+                                <>
+                                    <WifiOff className="w-4 h-4" />
+                                    <span>Using Cached Data</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Tabs */}
@@ -108,8 +179,8 @@ export default function PortfolioPage() {
                         <button
                             onClick={() => setActiveTab('assets')}
                             className={`px-8 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'assets'
-                                    ? 'bg-white text-black shadow-lg'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                                ? 'bg-white text-black shadow-lg'
+                                : 'text-white/60 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             <Building2 className="w-4 h-4" />
@@ -118,8 +189,8 @@ export default function PortfolioPage() {
                         <button
                             onClick={() => setActiveTab('performance')}
                             className={`px-8 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'performance'
-                                    ? 'bg-white text-black shadow-lg'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                                ? 'bg-white text-black shadow-lg'
+                                : 'text-white/60 hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             <History className="w-4 h-4" />
@@ -130,7 +201,12 @@ export default function PortfolioPage() {
 
                 {/* Content */}
                 <div className="animate-reveal delay-200">
-                    {activeTab === 'assets' ? (
+                    {loading ? (
+                        <div className="glass-panel p-16 rounded-3xl text-center">
+                            <div className="w-12 h-12 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+                            <p className="text-white/60">Loading portfolio data...</p>
+                        </div>
+                    ) : activeTab === 'assets' ? (
                         <>
                             {/* Asset Summary Cards */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
@@ -245,16 +321,19 @@ export default function PortfolioPage() {
                             <div>
                                 <div className="mb-8">
                                     <h2 className="text-2xl font-bold text-white mb-2">Active Projects</h2>
-                                    <p className="text-white/40">Detailed view of all renewable energy assets in the portfolio.</p>
+                                    <p className="text-white/40">
+                                        Detailed view of all renewable energy assets in the portfolio.
+                                        {oracleConnected && <span className="text-green-400 ml-2">• Prices from Oracle</span>}
+                                    </p>
                                 </div>
                                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {MOCK_PROJECTS.map((project, index) => (
+                                    {projects.map((project, index) => (
                                         <div
                                             key={project.id}
                                             className="animate-reveal"
                                             style={{ animationDelay: `${500 + index * 100}ms` }}
                                         >
-                                            <ProjectCard project={project} />
+                                            <ProjectCard project={project} showPrice={oracleConnected} />
                                         </div>
                                     ))}
                                 </div>
