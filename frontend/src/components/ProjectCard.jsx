@@ -7,8 +7,9 @@ import { MapPin, TrendingUp, DollarSign, ArrowUpRight, Zap } from 'lucide-react'
  * @param {Object} props
  * @param {Object} props.project - Project data
  * @param {boolean} props.showPrice - Whether to show PPA pricing from oracle
+ * @param {Function} props.onClick - Click handler for opening detail modal
  */
-export default function ProjectCard({ project, showPrice = false }) {
+export default function ProjectCard({ project, showPrice = false, onClick }) {
   const typeInfo = PROJECT_TYPES[project.type] || PROJECT_TYPES.solar;
 
   // Format PPA price for display
@@ -21,8 +22,16 @@ export default function ProjectCard({ project, showPrice = false }) {
 
   const priceDisplay = getPriceDisplay();
 
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (onClick) onClick(project);
+  };
+
   return (
-    <div className="group relative glass-panel p-8 rounded-3xl hover:bg-white/[0.08] transition-all duration-500 overflow-hidden">
+    <div
+      className="group relative glass-panel p-8 rounded-3xl hover:bg-white/[0.08] transition-all duration-500 overflow-hidden cursor-pointer"
+      onClick={handleClick}
+    >
 
       {/* Content */}
       <div className="relative z-10">
@@ -39,9 +48,12 @@ export default function ProjectCard({ project, showPrice = false }) {
             </div>
           </div>
 
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-2 group-hover:translate-x-0">
-            <ArrowUpRight className="w-6 h-6 text-white" />
-          </div>
+          <button
+            onClick={handleClick}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white text-white/60 hover:text-black transition-all duration-300 group-hover:scale-110"
+          >
+            <ArrowUpRight className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Name & Location */}

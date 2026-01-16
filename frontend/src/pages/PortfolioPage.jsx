@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import VideoBackground from '../components/VideoBackground';
 import NavChart from '../components/NavChart';
 import ProjectCard from '../components/ProjectCard';
+import ProjectDetailModal from '../components/ProjectDetailModal';
 import { useStore } from '../lib/store';
 import { fetchProjects, fetchNav, checkOracleHealth } from '../lib/oracleApi';
 import { MOCK_PROJECTS } from '../lib/mockData';
@@ -31,6 +32,20 @@ export default function PortfolioPage() {
     const [projects, setProjects] = useState([]);
     const [oracleConnected, setOracleConnected] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    // Modal state
+    const [selectedProject, setSelectedProject] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const openProjectModal = (project) => {
+        setSelectedProject(project);
+        setIsModalOpen(true);
+    };
+
+    const closeProjectModal = () => {
+        setIsModalOpen(false);
+        setSelectedProject(null);
+    };
 
     useEffect(() => {
         refreshNavHistory();
@@ -333,7 +348,7 @@ export default function PortfolioPage() {
                                             className="animate-reveal"
                                             style={{ animationDelay: `${500 + index * 100}ms` }}
                                         >
-                                            <ProjectCard project={project} showPrice={oracleConnected} />
+                                            <ProjectCard project={project} showPrice={oracleConnected} onClick={openProjectModal} />
                                         </div>
                                     ))}
                                 </div>
@@ -463,6 +478,13 @@ export default function PortfolioPage() {
                     )}
                 </div>
             </div>
+
+            {/* Project Detail Modal */}
+            <ProjectDetailModal
+                project={selectedProject}
+                isOpen={isModalOpen}
+                onClose={closeProjectModal}
+            />
         </div>
     );
 }

@@ -9,6 +9,7 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 // Layout components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import SmoothScroll from './components/SmoothScroll';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -30,16 +31,18 @@ function App() {
         <WalletModalProvider>
           <BrowserRouter>
             <div className="min-h-screen bg-black text-white flex flex-col">
-              <Navbar />
-              <main className="flex-1">
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/invest" element={<InvestPage />} />
-                  <Route path="/portfolio" element={<PortfolioPage />} />
-                </Routes>
-              </main>
-              <Footer />
+              <SmoothScroll>
+                <Navbar />
+                <main className="flex-1">
+                  <Routes>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/invest" element={<InvestPage />} />
+                    <Route path="/portfolio" element={<PortfolioPage />} />
+                  </Routes>
+                </main>
+                <Footer />
+              </SmoothScroll>
             </div>
           </BrowserRouter>
         </WalletModalProvider>
